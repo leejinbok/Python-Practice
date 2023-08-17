@@ -1,7 +1,7 @@
 #code from creating hashmap youtube video
-class hashMap:
+class Hashmap:
     def __init__(self):
-        self.size = 64
+        self.size = 8
         self.map = [None] * self.size
 
     def _get_hash(self, key):
@@ -19,7 +19,7 @@ class hashMap:
         else:
             for pair in self.map[key_hash]:
                 if pair[0] == key:
-                    pair[1] == value
+                    pair[1] = value
                     return True
             self.map[key_hash].append(key_value)
 
