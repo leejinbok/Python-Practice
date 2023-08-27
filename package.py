@@ -24,7 +24,7 @@ def load_package(filename):
     with open(filename, encoding='utf-8-sig') as file:
         package_data = csv.reader(file, delimiter=',')
         for data in package_data:
-            package_id = data[0]
+            package_id = int(data[0])
             package_address = data[1]
             package_city = data[2]
             package_state = data[3]

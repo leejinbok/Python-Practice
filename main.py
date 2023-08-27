@@ -1,4 +1,4 @@
-import math
+import heapq
 import datetime
 
 from address import *
@@ -13,83 +13,38 @@ load_distance("./csv/distance2.csv")
 start_address = address_list[0]
 
 
-# performs euclidean distance function O(1)
-def euclidean_distance(point1, point2):
-    if len(point1) != len(point2):
-        raise ValueError(f"{point1} and {point2} needs to be of same length for calculation to work")
-
-    distance_squared = sum((a - b) ** 2 for a, b in zip(point1, point2))
-    return math.sqrt(distance_squared)
-
-
 # performs nearest neighbor algorithm - uses O(n) time complexity and O(1) space complexity
-def find_nearest_neighbor(query):
+def find_nearest_neighbor(point, address):
     nearest_neighbor_index = None
     nearest_distance = float('inf')
+    point = int(point)
 
-    for i, point in enumerate(float_distance[query]):
-        if i != query:
-            euc_distance = point
-            if euc_distance < nearest_distance:
-                nearest_distance = euc_distance
-                nearest_neighbor_index = i
-    return nearest_neighbor_index
+    for i, distance in enumerate(float_distance[point]):
+        if distance < nearest_distance and i != point:
+            nearest_distance = distance
+            nearest_neighbor_index = i
+    """    elif i == point:
+            nearest_distance = distance
+            nearest_neighbor_index = i
+            continue
+    """
 
-
-def id_to_address(search):
-    row = address_hash.get(search)
-    parts = str(row).split(",")
-    return parts[2]
-
-
-def address_to_id(search):
-    parts = str(search).split(",")
-    return parts[0]
+    nearest_point = address[nearest_neighbor_index]
+    return nearest_distance, nearest_point
 
 
-def show_address():
-    for i in range(0, 27):
-        nearest_neighbor = find_nearest_neighbor(i)
-        print(str(nearest_neighbor))
-
-
-def package_weight(package):
-    parts = str(package).split(",")
-    return parts[6]
-
-
-def package_address(package):
-    parts = str(package).split(",")
-    return parts[1]
-
-
-def address_text(text):
-    parts = str(text).split(",")
-    return parts[0], parts[2]
 
 
 # takes truck object and returns address ID coordinates O(2N * M) complexity
-def package_distance(truck: Trucks):
-    truck_packages_data = []
-    pkg_data = []
-    for i in truck.package:
-        truck_packages_data.append(package_hash.get(str(i)))
+def package_address_id(truck: Trucks):
+    address_id = []
     # add starting point as WGU HUB (address_list[0])
-    address_id = [int(address_to_id(address_list[0]))]
-
-    for data in truck_packages_data:
+    for packages in truck.package:
         for address in address_list:
-            if package_address(data) == address_text(address)[1]:
-                address_id.append(int(address_text(address)[0].strip()))
+            if packages.address == address.text:
+                address_id.append(address.id)
     # add ending point as WGU HUB (address_list[0])
-    address_id.append(int(address_to_id(address_list[0])))
-    addr_id = address_coordinates(address_id)
-
-    for pkg_id in truck_packages_data:
-        pkg_id = address_to_id(pkg_id)
-        pkg_data.append(pkg_id)
-
-    return pkg_data, coordinate_distance(addr_id)
+    return address_id
 
 
 # iterates over the list of numbers and sets up coordinates needed to calculate distance O(N)
@@ -101,18 +56,69 @@ def address_coordinates(numbers):
 
 
 def coordinate_distance(coordinates):
-    total_distance = 0
     distance = []
     for i in coordinates:
         distance.append(float_distance[i[0]][i[1]])
-        total_distance += float_distance[i[0]][i[1]]
-
     return distance
 
 
-def delivered_times(truck: Trucks):
+def get_id_for_address(package_address):
+    # add starting point as WGU HUB (address_list[0])
+    for address in address_list:
+        if address.text == package_address:
+            return address.id
+    # add ending point as WGU HUB (address_list[0])
+    return None
+
+
+def distance_between(point1, point2):
+    print(point1, point2)
+    distance = float_distance[point1][point2]
+    return distance
+
+
+def truck_deliver_package(truck):
+    deliver_addr_list = []
+    truck_packages = []
+    current_location = 0
+    truck_packages_address_list = package_address_id(truck)
+    for items in truck.package:
+        truck_packages.append(items)
+        print(items)
+
+    while len(truck_packages_address_list) > 0:
+        min_value = 99
+        nearest_address_id = -1
+        nearest_package = None
+        for item in truck_packages_address_list:
+   #         min_value, id, nearest_package = min_distance(item, truck)
+            package = package_hash.get(item)
+            address_id = get_id_for_address(package.address)
+            distance = distance_between(item, address_id)
+            if distance < min_value:
+                min_value = distance
+                nearest_address_id = address_id
+                nearest_package = item
+
+        print(f"{nearest_address_id} : {min_value} : {nearest_package} : {truck_packages_address_list}")
+        deliver_addr_list.append(f"{nearest_address_id}, {min_value}, {nearest_package}")
+        print(truck_packages_address_list)
+        truck_packages_address_list.remove(nearest_package)
+        print(truck_packages_address_list)
+        print(deliver_addr_list)
+
+    return deliver_addr_list
+
+
+def load_packages(packages:list):
+    truck_items = []
+    for items in packages:
+        truck_items.append(package_hash.get(items))
+    return truck_items
+
+
+def delivered_times(truck: Trucks, addr_id):
     delivered_time = []
-    addr_id = package_distance(truck)
     for i in addr_id:
         distance = float_distance[i[0]][i[1]]
         truck.time += datetime.timedelta(hours=distance / truck.mph)
@@ -136,33 +142,68 @@ while True:
         break
 """
 
-truck1_packages = [34, 14, 15, 16, 19, 20, 21, 40, 4, 30, 8, 1, 39, 13]
-truck2_packages = [2, 33, 7, 29, 36, 17, 12, 18, 22, 10, 3, 37, 38, 24]
-truck3_packages = [31, 32, 6, 11, 23, 26, 25, 5, 9, 27, 35, 28]
-
-truck1 = Trucks(1, truck1_packages, 18, datetime.timedelta(hours=8))
-truck2 = Trucks(2, truck2_packages, 18, datetime.timedelta(hours=8))
-truck3 = Trucks(3, truck3_packages, 18, datetime.timedelta(hours=10, minutes=20))
+truck1_packages = [27, 35, 29, 7, 1, 13, 39, 30, 8, 31, 40, 4, 37, 34]
+truck2_packages = [18, 19, 36, 3, 20, 21, 38, 14, 16, 15]
+truck3_packages = [28, 6, 32, 9, 5, 25, 26, 2, 33, 11, 17, 12, 24, 23, 10, 22]
 
 
-print(package_distance(truck1))
+truck1 = Trucks(1, load_packages(truck1_packages), 18, datetime.timedelta(hours=8))
+truck2 = Trucks(2, load_packages(truck2_packages), 18, datetime.timedelta(hours=8))
+truck3 = Trucks(3, load_packages(truck3_packages), 18, datetime.timedelta(hours=10, minutes=20))
+
+
 """
-delivered_times(truck1)
-delivered_times(truck2)
-delivered_times(truck3)
-"""
-print(truck1.time)
-print(truck2.time)
-print(truck3.time)
+def find_next_nearest(current_address, addresses, truck, distances):
+    nearest_distance = float('inf')
+    next_nearest_address = None
+    address = package_address_id(truck).copy()
 
-name = package_hash.get("1")
-print(name.id)
-"""
+
+    for items in addresses:
+        distances = find_nearest_neighbor(current_address, address)
+        if distances[0] <= nearest_distance:
+            nearest_distance = distances[0]
+            next_nearest_address = items
+    return next_nearest_address
+
+
+def package_algorithm(truck:Trucks):
+    package_values = []
+    address = sorted(package_address_id(truck).copy())
+    current_address = address[0]
+    print(address)
+    a = (address_coordinates(address))
+    print(a)
+
+    while current_address:
+        distances = find_nearest_neighbor(current_address, address_list)
+        nearest_id = distances[1].id
+        nearest_distance = distances[0]
+
+        nearest_package = None
+        for package in address:
+            if package == nearest_id:
+                nearest_package = package
+                address.remove(package)
+                break
+
+        if nearest_package:
+            # Update the current address and add the package to the route
+            current_address = nearest_id
+            package_values.append(nearest_package)
+        else:
+            # If no nearest package is found, find the next nearest
+            current_address = find_next_nearest(current_address, address, truck, distances)
+            if current_address is None:
+                break  # No more packages left
+    return package_values
+
+
 print(truck1_coordinates)
 for items in truck1_data:
     print(find_nearest_neighbor(int(items.strip())))
 """
 
 if __name__ == '__main__':
-    nearest_neighbor = find_nearest_neighbor(2)
-    hashed_address = address_hash.get(str(nearest_neighbor))
+    a= truck_deliver_package(truck1)
+    print(a)
